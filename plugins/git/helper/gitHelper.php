@@ -94,7 +94,9 @@ class pxplugin_git_helper_gitHelper{
 			}
 
 		}
-		array_push($rtn, $current_revision);
+		if( $current_revision !== array() ){
+			array_push($rtn, $current_revision);
+		}
 
 		return $rtn;
 	}
