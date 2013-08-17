@@ -6,13 +6,15 @@
 class pxplugin_git_helper_gitHelper{
 
 	private $px;
+	private $path_rep;
 
 	/**
 	 * コンストラクタ
 	 * @param $px = PxFWコアオブジェクト
 	 */
-	public function __construct( $px ){
+	public function __construct( $px, $path_rep ){
 		$this->px = $px;
+		$this->path_rep = $path_rep;
 	}
 
 	/**
@@ -39,10 +41,7 @@ class pxplugin_git_helper_gitHelper{
 	 * ステータスを取得する
 	 */
 	public function get_status(){
-		$cmd = $this->path_git().' status';
-		ob_start();
-		passthru($cmd);
-		$status = ob_get_clean();
+		$status = $this->cmd_git('status');
 		return $status;
 	}
 
@@ -50,10 +49,7 @@ class pxplugin_git_helper_gitHelper{
 	 * ログを取得する
 	 */
 	public function get_log(){
-		$cmd = $this->path_git().' log';
-		ob_start();
-		passthru($cmd);
-		$log = ob_get_clean();
+		$log = $this->cmd_git('log');
 
 		$rtn = array();
 		$current_revision = array();
@@ -100,6 +96,24 @@ class pxplugin_git_helper_gitHelper{
 
 		return $rtn;
 	}
+
+	/**
+	 * コマンドを実行する
+	 */
+	private function cmd_git( $cmd ){
+		$path_current_dir = realpath('.');
+		if(strlen($this->path_rep) && is_dir($this->path_rep.'/.git/')){
+			@chdir($this->path_rep);
+		}
+
+		$cmd = $this->path_git().' '.$cmd;
+		ob_start();
+		passthru($cmd);
+		$std_out = ob_get_clean();
+
+		@chdir($path_current_dir);
+		return $std_out;
+	}//cmd_git()
 
 }
 

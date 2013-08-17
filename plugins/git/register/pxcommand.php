@@ -15,18 +15,29 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		parent::__construct( $command , $px );
 		$this->px = $px;
 
-		$this->homepage();
+		switch( $command[2] ){
+			case 'repos':
+				$fin = $this->page_repos(); break;
+			default:
+				$fin = $this->page_home(); break;
+		}
+		print $this->html_template($fin);
+		exit;
 	}
 
 	/**
 	 * ホームページを表示する。
 	 */
-	private function homepage(){
+	private function page_home(){
 		$command = $this->get_command();
 		$obj = $this->px->get_plugin_object('git');
-		$gitHelper = $obj->factory_gitHelper();
+		$obj_repo = $obj->factory_repos();
+		$cur_repo = $obj_repo->get_selected_repo_info();
+		$gitHelper = $obj->factory_gitHelper( $cur_repo );
 
 		$src = '';
+		$src .= '<p>path: '.t::h($cur_repo['path']).'</p>'."\n";
+
 		$src .= '<h2>git log</h2>';
 		$gitlog = $gitHelper->get_log();
 		$src .= '<p>'.count($gitlog).' commits.</p>'."\n";
@@ -48,10 +59,56 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$src .= t::text2html($gitHelper->get_status());
 
 		$src .= '<hr />'."\n";
+		$src .= '<p>'.$this->mk_link(':repos').'</p>'."\n";
 		$src .= '<p>git enabled: '.($gitHelper->is_enabled_git_command()?'true':'false').'</p>'."\n";
 
-		print $this->html_template($src);
-		exit;
+		return $src;
+	}
+
+	/**
+	 * リポジトリリストページ
+	 */
+	private function page_repos(){
+		$obj = $this->px->get_plugin_object('git');
+		$dao_repos = $obj->factory_repos();
+
+		$src = '';
+		return $src;
+	}
+
+
+
+	// ----------------------------------------------------------------------------
+
+	/**
+	 * コンテンツ内へのリンク先を調整する。
+	 */
+	private function href( $linkto = null ){
+		if(is_null($linkto)){
+			return '?PX='.implode('.',$this->command);
+		}
+		if($linkto == ':'){
+			return '?PX=plugins.git';
+		}
+		$rtn = preg_replace('/^\:/','?PX=plugins.git.',$linkto);
+
+		$rtn = $this->px->theme()->href( $rtn );
+		return $rtn;
+	}
+
+	/**
+	 * コンテンツ内へのリンクを生成する。
+	 */
+	private function mk_link( $linkto , $options = array() ){
+		if( !strlen($options['label']) ){
+			if( $this->local_sitemap[$linkto] ){
+				$options['label'] = $this->local_sitemap[$linkto]['title'];
+			}
+		}
+		$rtn = $this->href($linkto);
+
+		$rtn = $this->px->theme()->mk_link( $rtn , $options );
+		return $rtn;
 	}
 
 }
