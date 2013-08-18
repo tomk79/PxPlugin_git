@@ -163,8 +163,8 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 			$fin .= '<table class="def" style="width:100%;">'."\n";
 			$fin .= '	<thead>'."\n";
 			$fin .= '		<tr>'."\n";
-			$fin .= '			<th>名前</th>'."\n";
 			$fin .= '			<th>パス</th>'."\n";
+			$fin .= '			<th>名前</th>'."\n";
 			$fin .= '			<th></th>'."\n";
 			$fin .= '		</tr>'."\n";
 			$fin .= '	</thead>'."\n";
