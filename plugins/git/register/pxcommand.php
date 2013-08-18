@@ -18,9 +18,9 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$this->px = $px;
 
 		$this->local_sitemap = array();
-		$this->local_sitemap[ ':'                                           ] = array( 'title'=>'git'                                );
-		$this->local_sitemap[ ':repos'                                      ] = array( 'title'=>'リポジトリ一覧'                     );
-		$this->local_sitemap[ ':repo_select'                                ] = array( 'title'=>'リポジトリ選択'                     );
+		$this->local_sitemap[ ':'                 ] = array( 'title'=>'git'               );
+		$this->local_sitemap[ ':repos'            ] = array( 'title'=>'リポジトリ一覧'    );
+		$this->local_sitemap[ ':repo_select'      ] = array( 'title'=>'リポジトリ選択'    );
 
 		switch( $command[2] ){
 			case 'repos':
@@ -81,6 +81,9 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$src = '';
 		$src .= '<p>path: '.t::h($cur_repo['path']).'</p>'."\n";
 
+		$src .= '<h2>git status</h2>';
+		$src .= t::text2html($gitHelper->get_status());
+
 		$src .= '<h2>git log</h2>';
 		$gitlog = $gitHelper->get_log();
 		$src .= '<p>'.count($gitlog).' commits.</p>'."\n";
@@ -98,8 +101,11 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 			$src .= '</dl>'."\n";
 		}
 
-		$src .= '<h2>git status</h2>';
-		$src .= t::text2html($gitHelper->get_status());
+		$src .= '<h2>git tag</h2>';
+		$src .= t::text2html($gitHelper->get_tag());
+
+		$src .= '<h2>git branch</h2>';
+		$src .= t::text2html($gitHelper->get_branch());
 
 		$src .= '<hr />'."\n";
 		$src .= '<p>'.$this->mk_link(':repos').'</p>'."\n";
@@ -112,20 +118,70 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 	 * リポジトリリストページ
 	 */
 	private function page_repos(){
+		$this->set_title('リポジトリリスト');
 		$obj = $this->px->get_plugin_object('git');
 		$dao_repos = $obj->factory_repos();
 
-		$fin = '';
+		$css = '';
+		$css .= '<style type="text/css">'."\n";
+		$css .= '.contents .cont_repoform{'."\n";
+		$css .= '}'."\n";
+		$css .= '.contents .cont_repoform dl,'."\n";
+		$css .= '.contents .cont_repoform dl dt,'."\n";
+		$css .= '.contents .cont_repoform dl dd{'."\n";
+		$css .= '	display:inline-block;'."\n";
+		$css .= '	list-style-type:none;'."\n";
+		$css .= '	padding:0;'."\n";
+		$css .= '	margin:0;'."\n";
+		$css .= '}'."\n";
+		$css .= '.contents .cont_repoform dl dt{'."\n";
+		$css .= '	padding:0 1em 0 0;'."\n";
+		$css .= '}'."\n";
+		$css .= '.contents .cont_repoform dl dd{'."\n";
+		$css .= '	padding:0 1em 0 0;'."\n";
+		$css .= '}'."\n";
+		$css .= '</style>'."\n";
 
+		$fin = '';
+		$fin .= $css;
+		$fin .= '<h2>ローカルリポジトリを設定</h2>'."\n";
+		$fin .= '<div class="unit cont_repoform">'."\n";
 		$fin .= '<form action="'.t::h($this->href(':repo_select')).'" method="post" class="inline">'."\n";
-		$fin .= '<ul>'."\n";
-		$fin .= '<li>path: <input type="text" name="path" value="" /></li>'."\n";
-		$fin .= '<li>name: <input type="text" name="name" value="" /></li>'."\n";
-		$fin .= '</ul>'."\n";
-		$fin .= '<input type="submit" value="選択" />'."\n";
+		$fin .= '<dl>'."\n";
+		$fin .= '<dt>path:</dt><dd><input type="text" name="path" value="" style="width:300px; " /></dd>'."\n";
+		$fin .= '<dt>name:</dt><dd><input type="text" name="name" value="" style="width:120px; " /></dd>'."\n";
+		$fin .= '</dl>'."\n";
+		$fin .= '<input type="submit" value="設定する" />'."\n";
 		$fin .= '<input type="hidden" name="mode" value="execute" />'."\n";
 		$fin .= '</form>'."\n";
+		$fin .= '</div><!-- / .cont_repoform -->'."\n";
 		$fin .= ''."\n";
+
+		$repos = $dao_repos->get_repo_list();
+		if( count($repos) ){
+			$fin .= '<h2>履歴から選ぶ</h2>'."\n";
+			$fin .= '<table class="def" style="width:100%;">'."\n";
+			$fin .= '	<thead>'."\n";
+			$fin .= '		<tr>'."\n";
+			$fin .= '			<th>名前</th>'."\n";
+			$fin .= '			<th>パス</th>'."\n";
+			$fin .= '			<th></th>'."\n";
+			$fin .= '		</tr>'."\n";
+			$fin .= '	</thead>'."\n";
+			$fin .= '	<tbody>'."\n";
+			foreach( $repos as $row ){
+				$fin .= '		<tr>'."\n";
+				$fin .= '			<th><a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">'.t::h($row['path']).'</a></th>'."\n";
+				$fin .= '			<td>'.t::h($row['name']).'</td>'."\n";
+				$fin .= '			<td>{$string}</td>'."\n";
+				$fin .= '		</tr>'."\n";
+			}
+			$fin .= '	</tbody>'."\n";
+			$fin .= '</table><!-- /table.def -->'."\n";
+			$fin .= ''."\n";
+
+		}
+
 
 		return $fin;
 	}
@@ -136,6 +192,7 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 	 * リポジトリ登録
 	 */
 	private function page_repo_select(){
+		$this->set_title('リポジトリ選択');
 		$error = $this->page_repo_select_check();
 		if( $this->px->req()->get_param('mode') == 'thanks' ){
 			return	$this->page_repo_select_thanks();
@@ -181,7 +238,7 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$RTN .= '		</td>'."\n";
 		$RTN .= '	</tr>'."\n";
 		$RTN .= '</table>'."\n";
-		$RTN .= '	<div class="center"><input type="submit" value="選択する" /></div>'."\n";
+		$RTN .= '	<p class="center"><input type="submit" value="設定する" /></p>'."\n";
 		$RTN .= '	<input type="hidden" name="mode" value="execute" />'."\n";
 		$RTN .= '</form>'."\n";
 		return	$RTN;

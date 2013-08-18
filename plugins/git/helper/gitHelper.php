@@ -46,6 +46,22 @@ class pxplugin_git_helper_gitHelper{
 	}
 
 	/**
+	 * タグの一覧を取得する
+	 */
+	public function get_tag(){
+		$rtn = $this->cmd_git('tag');
+		return $rtn;
+	}
+
+	/**
+	 * ブランチの一覧を取得する
+	 */
+	public function get_branch(){
+		$rtn = $this->cmd_git('branch');
+		return $rtn;
+	}
+
+	/**
 	 * ログを取得する
 	 */
 	public function get_log(){
