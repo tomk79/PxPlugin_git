@@ -21,26 +21,48 @@ class pxplugin_git_models_repos{
 
 		// $this->obj->get_path_ramdata();
 		// test::var_dump($this->repo_list);
-	}
+	}//__construct()
 
 	/**
 	 * リポジトリを選択する
 	 */
-	public function select($path){
-		if( is_null($this->repo_list[$path]) ){
-			return false;
+	public function select($path, $name = null){
+		$target = null;
+		foreach( $this->repo_list as $num=>$row ){
+			if( $row['path'] == $path ){
+				$target = $row;
+				if( strlen($name) ){
+					$target['name'] = $name;
+				}
+				unset($this->repo_list[$num]);
+				break;
+			}
 		}
-		$this->px->req()->set_session('plugins.git.selected_repository', $path);
-		return $this->repo_list[$path];
-	}
+
+		if( !is_array($target) ){
+			$target = array();
+			$target['path'] = $path;
+			$target['name'] = $name;
+		}
+		array_unshift($this->repo_list, $target);
+		$this->save();
+
+		return $this->get_selected_repo_info();
+	}//select()
 
 	/**
 	 * 選択したリポジトリ情報を取得する
 	 */
 	public function get_selected_repo_info(){
-		$path = $this->px->req()->get_session('plugins.git.selected_repository');
-		return $this->repo_list[$path];
-	}
+		return $this->repo_list[0];
+	}//get_selected_repo_info()
+
+	/**
+	 * リポジトリ情報の一覧を取得する
+	 */
+	public function get_repo_list(){
+		return $this->repo_list;
+	}//get_repo_list()
 
 	/**
 	 * リポジトリ一覧を読み込む
@@ -52,7 +74,7 @@ class pxplugin_git_models_repos{
 			$tmp_ary = array();
 			$tmp_ary['path'] = $csv_row[0];
 			$tmp_ary['name'] = $csv_row[1];
-			$this->repo_list[$tmp_ary['path']] = $tmp_ary;
+			array_push( $this->repo_list, $tmp_ary );
 		}
 		// asort($this->repo_list);
 		return true;
@@ -63,7 +85,7 @@ class pxplugin_git_models_repos{
 	 */
 	public function save(){
 		$src = $this->px->dbh()->mk_csv_utf8($this->repo_list);
-		$result = $this->dbh()->file_overwrite( $this->obj->get_path_ramdata().'repo_list.csv', $src );
+		$result = $this->px->dbh()->file_overwrite( $this->obj->get_path_ramdata().'repo_list.csv', $src );
 		return $result;
 	}
 
