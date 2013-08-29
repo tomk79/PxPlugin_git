@@ -54,6 +54,64 @@ class pxplugin_git_helper_gitHelper{
 	}
 
 	/**
+	 * リビジョンの情報を得る
+	 */
+	public function get_revision_info($rev){
+		$log = $this->cmd_git('log -n 1 -p '.$rev);
+
+		$rtn = array();
+		$current_revision = array();
+		$status = 0;
+		foreach( preg_split('/\r\n|\r|\n/', $log) as $row ){
+			if( $status === 1 && !strlen($row) ){
+				$status = 0;
+				continue;
+			}elseif( $status === 1 ){
+				if( preg_match('/^Author\: (.+)$/s', $row, $matches) ){
+					$current_revision['author'] = trim($matches[1]);
+				}elseif( preg_match('/^Date\: (.+)$/s', $row, $matches) ){
+					$current_revision['date'] = trim($matches[1]);
+				}
+				continue;
+			}
+			if( $status === 2 ){
+				$current_revision['diff'] .= $row."\n";
+				continue;
+			}
+			if( $status === 0 && preg_match('/^commit ([a-zA-Z0-9]+)$/s', $row, $matches) ){
+				if( strlen($current_revision['commit']) ){
+					array_push($rtn, $current_revision);
+				}
+				$current_revision = array(
+					'commit'=>$matches[1],
+					'author'=>'',
+					'date'=>'',
+					'subject'=>'',
+					'description'=>'',
+					'diff'=>'',
+				);
+				$status = 1;
+			}elseif( $status === 0){
+				if( preg_match('/^    (.+)$/s', $row, $matches) ){
+					if(!strlen($current_revision['subject'])){
+						$current_revision['subject'] .= trim($matches[1]);
+					}else{
+						$current_revision['description'] .= $matches[1]."\n";
+					}
+				}elseif(!strlen($row)){
+					$status = 2;
+					continue;
+				}
+			}
+
+		}
+		if( $current_revision !== array() ){
+			array_push($rtn, $current_revision);
+		}
+		return $rtn[0];
+	}
+
+	/**
 	 * ブランチの一覧を取得する
 	 */
 	public function get_branch(){

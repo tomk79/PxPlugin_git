@@ -19,10 +19,13 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 
 		$this->local_sitemap = array();
 		$this->local_sitemap[ ':'                 ] = array( 'title'=>'git'               );
+		$this->local_sitemap[ ':rev'              ] = array( 'title'=>'リビジョン'        );
 		$this->local_sitemap[ ':repos'            ] = array( 'title'=>'リポジトリ一覧'    );
 		$this->local_sitemap[ ':repo_select'      ] = array( 'title'=>'リポジトリ選択'    );
 
 		switch( $command[2] ){
+			case 'rev':
+				$fin = $this->page_revision(); break;
 			case 'repos':
 				$fin = $this->page_repos(); break;
 			case 'repo_select':
@@ -91,7 +94,7 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 			$src .= '<dl style="max-height:16em; overflow:auto; padding-right:1em;">'."\n";
 			foreach( $gitlog as $gitlog_row ){
 				$src .= '<dt class="large" style="font-weight:bold; margin:1.5em 0 0.5em 0;">'.t::h($gitlog_row['subject']).'</dt>'."\n";
-				$src .= '	<dd class="small">commit: '.t::h($gitlog_row['commit']).'</dd>'."\n";
+				$src .= '	<dd class="small">commit: <a href="'.t::h($this->href(':rev.'.$gitlog_row['commit'])).'">'.t::h($gitlog_row['commit']).'</a></dd>'."\n";
 				$src .= '	<dd class="small">author: '.t::h($gitlog_row['author']).'</dd>'."\n";
 				$src .= '	<dd class="small">date: '.t::h($gitlog_row['date']).'</dd>'."\n";
 				if( strlen(trim($gitlog_row['description'])) ){
@@ -110,6 +113,34 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$src .= '<hr />'."\n";
 		$src .= '<p>'.$this->mk_link(':repos').'</p>'."\n";
 		$src .= '<p>git enabled: '.($gitHelper->is_enabled_git_command()?'true':'false').'</p>'."\n";
+
+		return $src;
+	}
+
+	/**
+	 * リビジョン情報を表示する。
+	 */
+	private function page_revision(){
+		$command = $this->get_command();
+		$obj = $this->px->get_plugin_object('git');
+		$obj_repo = $obj->factory_repos();
+		$cur_repo = $obj_repo->get_selected_repo_info();
+		$gitHelper = $obj->factory_gitHelper( $cur_repo );
+
+		$revision = $command[3];
+
+		$src = '';
+		$src .= '<p>revision: '.t::h($revision).'</p>'."\n";
+
+		$revision_info = $gitHelper->get_revision_info($revision);
+		$src .= '<ul>';
+		$src .= '<li>commit: '.t::h($revision_info['commit']).'</li>';
+		$src .= '<li>author: '.t::h($revision_info['author']).'</li>';
+		$src .= '<li>date: '.t::h($revision_info['date']).'</li>';
+		$src .= '<li>subject: '.t::h($revision_info['subject']).'</li>';
+		$src .= '<li>description: '.t::text2html($revision_info['description']).'</li>';
+		$src .= '<li>diff: '.t::text2html($revision_info['diff']).'</li>';
+		$src .= '</ul>';
 
 		return $src;
 	}
