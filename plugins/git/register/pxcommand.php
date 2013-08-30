@@ -189,22 +189,23 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$fin .= ''."\n";
 
 		$repos = $dao_repos->get_repo_list();
+		$cur_repo = $dao_repos->get_selected_repo_info();
 		if( count($repos) ){
 			$fin .= '<h2>履歴から選ぶ</h2>'."\n";
 			$fin .= '<table class="def" style="width:100%;">'."\n";
 			$fin .= '	<thead>'."\n";
 			$fin .= '		<tr>'."\n";
-			$fin .= '			<th>パス</th>'."\n";
-			$fin .= '			<th>名前</th>'."\n";
-			$fin .= '			<th></th>'."\n";
+			$fin .= '			<th style="width:40%;">パス</th>'."\n";
+			$fin .= '			<th style="width:20%;">名前</th>'."\n";
+			$fin .= '			<th style="width:40%;" class="center">---</th>'."\n";
 			$fin .= '		</tr>'."\n";
 			$fin .= '	</thead>'."\n";
 			$fin .= '	<tbody>'."\n";
 			foreach( $repos as $row ){
 				$fin .= '		<tr>'."\n";
-				$fin .= '			<th><a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">'.t::h($row['path']).'</a></th>'."\n";
-				$fin .= '			<td>'.t::h($row['name']).'</td>'."\n";
-				$fin .= '			<td>{$string}</td>'."\n";
+				$fin .= '			<th style="width:40%;">'.($cur_repo['path']==$row['path']?''.t::h($row['path']).'':'<a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">'.t::h($row['path']).'</a>').'</th>'."\n";
+				$fin .= '			<td style="width:20%;">'.t::h($row['name']).'</td>'."\n";
+				$fin .= '			<td style="width:40%;" class="center">'.($cur_repo['path']==$row['path']?'---':'<a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">選択する</a>').'</td>'."\n";
 				$fin .= '		</tr>'."\n";
 			}
 			$fin .= '	</tbody>'."\n";
