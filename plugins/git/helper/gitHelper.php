@@ -48,15 +48,26 @@ class pxplugin_git_helper_gitHelper{
 	/**
 	 * タグの一覧を取得する
 	 */
-	public function get_tag(){
+	public function get_tags(){
 		$rtn = $this->cmd_git('tag');
+		$rtn = trim($rtn);
+		if(!strlen($rtn)){ return array(); }
+		$rtn = preg_split( '/(?:\r\n|\r|\n)+/', $rtn );
 		return $rtn;
+	}
+
+	/**
+	 * タグのリビジョン番号を取得する
+	 */
+	public function get_rev_parse($tag_name){
+		$rtn = $this->cmd_git('rev-parse '.$tag_name);
+		return trim($rtn);
 	}
 
 	/**
 	 * リビジョンの情報を得る
 	 */
-	public function get_revision_info($rev){
+	public function get_commit_info($rev){
 		$log = $this->cmd_git('log -n 1 -p '.$rev);
 
 		$rtn = array();
@@ -114,9 +125,27 @@ class pxplugin_git_helper_gitHelper{
 	/**
 	 * ブランチの一覧を取得する
 	 */
-	public function get_branch(){
+	public function get_branches(){
 		$rtn = $this->cmd_git('branch');
+		$rtn = preg_split( '/(?:\r\n|\r|\n)+/', trim($rtn) );
+		foreach( $rtn as $key=>$val ){
+			$rtn[$key] = preg_replace('/^\*\s+/', '', $val);
+		}
 		return $rtn;
+	}
+
+	/**
+	 * 現在のブランチ名を取得する
+	 */
+	public function get_current_branch(){
+		$rtn = $this->cmd_git('branch');
+		$rtn = preg_split( '/(?:\r\n|\r|\n)+/', trim($rtn) );
+		foreach( $rtn as $key=>$val ){
+			if( preg_match('/^\*\s+/', $val) ){
+				return preg_replace('/^\*\s+/', '', $val);
+			}
+		}
+		return null;
 	}
 
 	/**

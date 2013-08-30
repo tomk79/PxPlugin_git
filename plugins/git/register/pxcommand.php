@@ -19,13 +19,17 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 
 		$this->local_sitemap = array();
 		$this->local_sitemap[ ':'                 ] = array( 'title'=>'git'               );
-		$this->local_sitemap[ ':rev'              ] = array( 'title'=>'リビジョン'        );
+		$this->local_sitemap[ ':commits'          ] = array( 'title'=>'コミット一覧'      );
 		$this->local_sitemap[ ':repos'            ] = array( 'title'=>'リポジトリ一覧'    );
 		$this->local_sitemap[ ':repo_select'      ] = array( 'title'=>'リポジトリ選択'    );
 
 		switch( $command[2] ){
-			case 'rev':
-				$fin = $this->page_revision(); break;
+			case 'commits':
+				if( strlen($command[3]) ){
+					$fin = $this->page_commit(); break;
+				}else{
+					$fin = $this->page_commits(); break;
+				}
 			case 'repos':
 				$fin = $this->page_repos(); break;
 			case 'repo_select':
@@ -85,42 +89,109 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$src .= '<p>path: '.t::h($cur_repo['path']).'</p>'."\n";
 
 		$src .= '<h2>git status</h2>';
-		$src .= t::text2html($gitHelper->get_status());
+		$src .= '<div class="unit">'."\n";
+		$src .= '	<div class="code"><pre><code>'.t::h($gitHelper->get_status()).'</code></pre></div>'."\n";
+		$src .= '</div>'."\n";
 
 		$src .= '<h2>git log</h2>';
 		$gitlog = $gitHelper->get_log();
 		$src .= '<p>'.count($gitlog).' commits.</p>'."\n";
 		if(count($gitlog)){
 			$src .= '<dl style="max-height:16em; overflow:auto; padding-right:1em;">'."\n";
+			$max = 10;
+			$num = 0;
 			foreach( $gitlog as $gitlog_row ){
+				$num ++;
 				$src .= '<dt class="large" style="font-weight:bold; margin:1.5em 0 0.5em 0;">'.t::h($gitlog_row['subject']).'</dt>'."\n";
-				$src .= '	<dd class="small">commit: <a href="'.t::h($this->href(':rev.'.$gitlog_row['commit'])).'">'.t::h($gitlog_row['commit']).'</a></dd>'."\n";
+				$src .= '	<dd class="small">commit: <a href="'.t::h($this->href(':commits.'.$gitlog_row['commit'])).'">'.t::h($gitlog_row['commit']).'</a></dd>'."\n";
 				$src .= '	<dd class="small">author: '.t::h($gitlog_row['author']).'</dd>'."\n";
 				$src .= '	<dd class="small">date: '.t::h($gitlog_row['date']).'</dd>'."\n";
 				if( strlen(trim($gitlog_row['description'])) ){
 					$src .= '	<dd><div style="padding:0.5em 1em; background-color:#f9f9f9; border:1px solid #aaaaaa;">'.t::text2html($gitlog_row['description']).'</div></dd>'."\n";
 				}
+				if( $num >= $max ){
+					break;
+				}
 			}
 			$src .= '</dl>'."\n";
+			if( count($gitlog) > $max ){
+				$src .= '<div class="more_links">'."\n";
+				$src .= '	<ul>'."\n";
+				$src .= '		<li><a href="'.t::h($this->href(':commits')).'">全部みる</a></li>'."\n";
+				$src .= '	</ul>'."\n";
+				$src .= '</div><!-- /.more_links -->'."\n";
+			}
 		}
 
 		$src .= '<h2>git tag</h2>';
-		$src .= t::text2html($gitHelper->get_tag());
+		$tags = $gitHelper->get_tags();
+		if( count($tags) ){
+			$src .= '<ul>';
+			foreach($tags as $tag){
+				$rev = $gitHelper->get_rev_parse($tag);
+				$src .= '<li>'.t::h($tag).' (<a href="'.t::h($this->href(':commits.'.$rev)).'">'.t::h($rev).'</a>)</li>';
+			}
+			$src .= '</ul>';
+		}else{
+			$src .= '<p>タグはありません。</p>';
+		}
 
 		$src .= '<h2>git branch</h2>';
-		$src .= t::text2html($gitHelper->get_branch());
+		$current_branch = $gitHelper->get_current_branch();
+		$branches = $gitHelper->get_branches();
+		$src .= '<ul>';
+		foreach($branches as $branch){
+			$src .= '<li>'.t::h($branch).($branch==$current_branch?' (current)':'').'</li>';
+		}
+		$src .= '</ul>';
 
-		$src .= '<hr />'."\n";
-		$src .= '<p>'.$this->mk_link(':repos').'</p>'."\n";
+
+		$src .= '<div class="more_links">'."\n";
+		$src .= '	<ul>'."\n";
+		$src .= '		<li>'.$this->mk_link(':repos').'</li>'."\n";
+		$src .= '	</ul>'."\n";
+		$src .= '</div><!-- /.more_links -->'."\n";
 		$src .= '<p>git enabled: '.($gitHelper->is_enabled_git_command()?'true':'false').'</p>'."\n";
 
 		return $src;
 	}
 
 	/**
-	 * リビジョン情報を表示する。
+	 * コミットの詳細情報を表示する。
 	 */
-	private function page_revision(){
+	private function page_commit(){
+
+		$command = $this->get_command();
+		$obj = $this->px->get_plugin_object('git');
+		$obj_repo = $obj->factory_repos();
+		$cur_repo = $obj_repo->get_selected_repo_info();
+		$gitHelper = $obj->factory_gitHelper( $cur_repo );
+
+		$revision = $command[3];
+		$this->set_title('コミット '.$revision.' の詳細');
+
+		$src = '';
+		$src .= '<p>commit: '.t::h($revision).'</p>'."\n";
+
+		$revision_info = $gitHelper->get_commit_info($revision);
+		$src .= '<ul>';
+		$src .= '<li>commit: '.t::h($revision_info['commit']).'</li>';
+		$src .= '<li>author: '.t::h($revision_info['author']).'</li>';
+		$src .= '<li>date: '.t::h($revision_info['date']).'</li>';
+		$src .= '<li>subject: '.t::h($revision_info['subject']).'</li>';
+		$src .= '<li>description: '.t::text2html($revision_info['description']).'</li>';
+		$src .= '<li>diff: '.t::text2html($revision_info['diff']).'</li>';
+		$src .= '</ul>';
+
+		return $src;
+	}
+
+	/**
+	 * コミット一覧を表示する。
+	 */
+	private function page_commits(){
+		$this->set_title('コミット一覧');
+
 		$command = $this->get_command();
 		$obj = $this->px->get_plugin_object('git');
 		$obj_repo = $obj->factory_repos();
@@ -130,17 +201,22 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$revision = $command[3];
 
 		$src = '';
-		$src .= '<p>revision: '.t::h($revision).'</p>'."\n";
-
-		$revision_info = $gitHelper->get_revision_info($revision);
-		$src .= '<ul>';
-		$src .= '<li>commit: '.t::h($revision_info['commit']).'</li>';
-		$src .= '<li>author: '.t::h($revision_info['author']).'</li>';
-		$src .= '<li>date: '.t::h($revision_info['date']).'</li>';
-		$src .= '<li>subject: '.t::h($revision_info['subject']).'</li>';
-		$src .= '<li>description: '.t::text2html($revision_info['description']).'</li>';
-		$src .= '<li>diff: '.t::text2html($revision_info['diff']).'</li>';
-		$src .= '</ul>';
+		$gitlog = $gitHelper->get_log();
+		$src .= '<p>'.count($gitlog).' commits.</p>'."\n";
+		if(count($gitlog)){
+			$src .= '<dl>'."\n";
+			foreach( $gitlog as $gitlog_row ){
+				$num ++;
+				$src .= '<dt class="large" style="font-weight:bold; margin:1.5em 0 0.5em 0;">'.t::h($gitlog_row['subject']).'</dt>'."\n";
+				$src .= '	<dd class="small">commit: <a href="'.t::h($this->href(':commits.'.$gitlog_row['commit'])).'">'.t::h($gitlog_row['commit']).'</a></dd>'."\n";
+				$src .= '	<dd class="small">author: '.t::h($gitlog_row['author']).'</dd>'."\n";
+				$src .= '	<dd class="small">date: '.t::h($gitlog_row['date']).'</dd>'."\n";
+				if( strlen(trim($gitlog_row['description'])) ){
+					$src .= '	<dd><div style="padding:0.5em 1em; background-color:#f9f9f9; border:1px solid #aaaaaa;">'.t::text2html($gitlog_row['description']).'</div></dd>'."\n";
+				}
+			}
+			$src .= '</dl>'."\n";
+		}
 
 		return $src;
 	}
