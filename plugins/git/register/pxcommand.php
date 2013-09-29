@@ -22,6 +22,7 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$this->local_sitemap[ ':commits'          ] = array( 'title'=>'コミット一覧'      );
 		$this->local_sitemap[ ':repos'            ] = array( 'title'=>'リポジトリ一覧'    );
 		$this->local_sitemap[ ':repo_select'      ] = array( 'title'=>'リポジトリ選択'    );
+		$this->local_sitemap[ ':checkout'         ] = array( 'title'=>'チェックアウト'    );
 
 		switch( $command[2] ){
 			case 'commits':
@@ -34,6 +35,8 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 				$fin = $this->page_repos(); break;
 			case 'repo_select':
 				$fin = $this->page_repo_select(); break;
+			case 'checkout':
+				$fin = $this->page_checkout(); break;
 			default:
 				$fin = $this->page_home(); break;
 		}
@@ -52,7 +55,14 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		if($linkto == ':'){
 			return '?PX=plugins.git';
 		}
+		$param = '';
+		if( preg_match('/^(.*?)(?:\?(.*))?$/s', $linkto, $matched) ){
+			$linkto = $matched[1];
+			$param = '&'.$matched[2];
+		}
+
 		$rtn = preg_replace('/^\:/','?PX=plugins.git.',$linkto);
+		$rtn .= $param;
 
 		$rtn = $this->px->theme()->href( $rtn );
 		return $rtn;
@@ -141,7 +151,7 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 		$branches = $gitHelper->get_branches();
 		$src .= '<ul>';
 		foreach($branches as $branch){
-			$src .= '<li>'.t::h($branch).($branch==$current_branch?' (current)':'').'</li>';
+			$src .= '<li>'.t::h($branch).' '.($branch==$current_branch?'(current)':'<a href="'.t::h($this->href(':checkout?branch='.$branch)).'">checkout</a>').'</li>';
 		}
 		$src .= '</ul>';
 
@@ -271,17 +281,17 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 			$fin .= '<table class="def" style="width:100%;">'."\n";
 			$fin .= '	<thead>'."\n";
 			$fin .= '		<tr>'."\n";
-			$fin .= '			<th style="width:40%;">パス</th>'."\n";
-			$fin .= '			<th style="width:20%;">名前</th>'."\n";
-			$fin .= '			<th style="width:40%;" class="center">---</th>'."\n";
+			$fin .= '			<th style="width:50%;">パス</th>'."\n";
+			$fin .= '			<th style="width:30%;">名前</th>'."\n";
+			$fin .= '			<th style="width:20%;" class="center">---</th>'."\n";
 			$fin .= '		</tr>'."\n";
 			$fin .= '	</thead>'."\n";
 			$fin .= '	<tbody>'."\n";
 			foreach( $repos as $row ){
 				$fin .= '		<tr>'."\n";
-				$fin .= '			<th style="width:40%;">'.($cur_repo['path']==$row['path']?''.t::h($row['path']).'':'<a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">'.t::h($row['path']).'</a>').'</th>'."\n";
-				$fin .= '			<td style="width:20%;">'.t::h($row['name']).'</td>'."\n";
-				$fin .= '			<td style="width:40%;" class="center">'.($cur_repo['path']==$row['path']?'---':'<a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">選択する</a>').'</td>'."\n";
+				$fin .= '			<th style="width:50%; word-break:break-all;">'.($cur_repo['path']==$row['path']?''.t::h($row['path']).'':'<a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">'.t::h($row['path']).'</a>').'</th>'."\n";
+				$fin .= '			<td style="width:30%; word-break:break-all;">'.t::h($row['name']).'</td>'."\n";
+				$fin .= '			<td style="width:20%;" class="center">'.($cur_repo['path']==$row['path']?'---':'<a href="'.t::h( $this->href(':repo_select').'&path='.urlencode($row['path']).'&name='.urlencode($row['name']).'&mode=execute').'">選択する</a>').'</td>'."\n";
 				$fin .= '		</tr>'."\n";
 			}
 			$fin .= '	</tbody>'."\n";
@@ -292,6 +302,91 @@ class pxplugin_git_register_pxcommand extends px_bases_pxcommand{
 
 
 		return $fin;
+	}
+
+	// ----------------------------------------------------------------------------
+
+	/**
+	 * チェックアウト
+	 */
+	private function page_checkout(){
+		$this->set_title('チェックアウト');
+		$error = $this->page_checkout_check();
+		if( $this->px->req()->get_param('mode') == 'thanks' ){
+			return	$this->page_checkout_thanks();
+		}elseif( $this->px->req()->get_param('mode') == 'execute' && !count( $error ) ){
+			return	$this->page_checkout_execute();
+		}elseif( !strlen( $this->px->req()->get_param('mode') ) ){
+			$error = array();
+		}
+		return	$this->page_checkout_input( $error );
+	}
+	/**
+	 * チェックアウト：入力
+	 */
+	private function page_checkout_input( $error ){
+		$RTN = ''."\n";
+
+		$RTN .= '<p>'."\n";
+		$RTN .= '	ブランチの情報を入力して、「確認する」ボタンをクリックしてください。<span class="must">必須</span>印の項目は必ず入力してください。<br />'."\n";
+		$RTN .= '</p>'."\n";
+		if( is_array( $error ) && count( $error ) ){
+			$RTN .= '<p class="error">'."\n";
+			$RTN .= '	入力エラーを検出しました。画面の指示に従って修正してください。<br />'."\n";
+			$RTN .= '</p>'."\n";
+		}
+		$RTN .= '<form action="'.t::h( $this->href() ).'" method="post">'."\n";
+		$RTN .= '<table style="width:100%;" class="form_elements">'."\n";
+		$RTN .= '	<tr>'."\n";
+		$RTN .= '		<th style="width:30%;"><div>ブランチ名 <span class="must">必須</span></div></th>'."\n";
+		$RTN .= '		<td style="width:70%;">'."\n";
+		$RTN .= '			<div><input type="text" name="branch" value="'.t::h( $this->px->req()->get_param('branch') ).'" style="width:80%;" /></div>'."\n";
+		if( strlen( $error['branch'] ) ){
+			$RTN .= '			<div class="error">'.$error['branch'].'</div>'."\n";
+		}
+		$RTN .= '		</td>'."\n";
+		$RTN .= '	</tr>'."\n";
+		$RTN .= '</table>'."\n";
+		$RTN .= '	<p class="center"><input type="submit" value="チェックアウトする" /></p>'."\n";
+		$RTN .= '	<input type="hidden" name="mode" value="execute" />'."\n";
+		$RTN .= '</form>'."\n";
+		return	$RTN;
+	}
+	/**
+	 * チェックアウト：チェック
+	 */
+	private function page_checkout_check(){
+		$RTN = array();
+
+		if( !strlen($this->px->req()->get_param('branch')) ){
+			$RTN['branch'] = 'ブランチ名は必ず入力してください。';
+		}
+
+		return	$RTN;
+	}
+	/**
+	 * チェックアウト：実行
+	 */
+	private function page_checkout_execute(){
+		$obj = $this->px->get_plugin_object('git');
+		$gitHelper = $obj->factory_gitHelper( $cur_repo );
+		if( !$gitHelper->checkout( $this->px->req()->get_param('branch') ) ){
+			return '<p class="error">チェックアウトに失敗しました。</p>';
+		}
+		return $this->px->redirect( $this->href().'&mode=thanks' );
+	}
+	/**
+	 * チェックアウト：完了
+	 */
+	private function page_checkout_thanks(){
+		// $RTN = ''."\n";
+		// $RTN .= '<p>プロジェクト編集処理を完了しました。</p>'."\n";
+		// $backTo = ':';
+		// $RTN .= '<form action="'.htmlspecialchars( $this->href( $backTo ) ).'" method="post">'."\n";
+		// $RTN .= '	<p><input type="submit" value="戻る" /></p>'."\n";
+		// $RTN .= '</form>'."\n";
+		// return	$RTN;
+		return $this->px->redirect( $this->href(':') );
 	}
 
 	// ----------------------------------------------------------------------------

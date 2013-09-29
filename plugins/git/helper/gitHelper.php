@@ -129,7 +129,7 @@ class pxplugin_git_helper_gitHelper{
 		$rtn = $this->cmd_git('branch');
 		$rtn = preg_split( '/(?:\r\n|\r|\n)+/', trim($rtn) );
 		foreach( $rtn as $key=>$val ){
-			$rtn[$key] = preg_replace('/^\*\s+/', '', $val);
+			$rtn[$key] = trim( preg_replace('/^\*\s+/', '', $val) );
 		}
 		return $rtn;
 	}
@@ -146,6 +146,21 @@ class pxplugin_git_helper_gitHelper{
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * チェックアウトする
+	 */
+	public function checkout( $branch ){
+		if( !strlen($branch) ){
+			return false;
+		}
+		$rtn = $this->cmd_git( 'checkout "'.t::escape_doublequote($branch).'"' );
+
+		if( $this->get_current_branch() != $branch ){
+			return false;
+		}
+		return true;
 	}
 
 	/**
